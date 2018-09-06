@@ -1,110 +1,176 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import pandas as pd
+from dash.dependencies import Input, Output
+# import pandas as pd
 import numpy as np
-import rainevents
+import xprafts
 import plotly.graph_objs as go
 
 app = dash.Dash()
 
-minimum_interevent_time = '3 hours'
-no_rain_threshold = 0.2 # mm/hr
-rainfall_field = 'Value (Millimetres)'
+# @app.callback(
+#     Output('rafts-data-1', 'contents'),
+#     [Input('rafts-file-1', 'contents')]
+#     )
+# def update_rafts_data(rafts_file_1):
+#     rafts_data, _, _ = xprafts.parse_rafts_file(rafts_file_1, events_file_1)
 
-#events = pd.read_csv('events.csv', index_col=0, parse_dates=True)
-#selected_events = pd.read_csv('selected_events.csv', index_col=0, parse_dates=True)
-#selected_events = selected_events[selected_events['Event_Total'] > 20]
-#ifd = pd.read_csv('ifd.csv', index_col=0, parse_dates=True)
-#ifd.index = pd.to_timedelta(ifd.index)
+rafts_file = r'example_files\Pallara_DEV01.loc'
+events_file = r'example_files\event_names.txt'
 
-raw_data = rainevents.parse_raw_data(r'DataSetExport-1529644243786.csv', 'Value (Millimetres)')
-events = rainevents.find_events(raw_data, minimum_interevent_time, no_rain_threshold, rainfall_field)
-selected_events = rainevents.select_events(events)
-selected_events = selected_events[selected_events['Event_Total'] > 20]
-ifd = rainevents.ifd('table.csv')
+# def parse_contents(rafts_file, events_file):
+rafts_data, event_times, events = xprafts.parse_rafts_file(rafts_file, events_file)
 
-available_events = selected_events['Event'].unique()
-
-app.layout = html.Div([
-        dcc.Graph(id='rainfall-graphic'),
-        dcc.Dropdown(
-                id='selected-event',
-                options=[{'label': i, 'value': i} for i in available_events],
-                value=available_events[0]
+table = html.Div([
+            html.Tr([
+                dcc.Markdown('Select XP-RAFTS and event names files:'),
+                dcc.Upload(
+                    id='rafts-file-1',
+                    children=html.Div([
+                        'RAFTS File: Drag & Drop or ',
+                        html.A('Select')
+                    ]),
+                    style={
+                        'width': '100%',
+                        'height': '30px',
+                        'lineHeight': '30px',
+                        'borderWidth': '1px',
+                        'borderStyle': 'dashed',
+                        'borderRadius': '5px',
+                        'textAlign': 'center',
+                        'margin': '10px'
+                    }
                 ),
-#        dcc.Graph(id='data-table',
-#                  figure={'layout': go.Table(
-#                                        header=dict(values=list(selected_events.columns),
-#                                                    fill = dict(color='#C2D4FF'),
-#                                                    align = ['left'] * 5),
-#                                        cells=dict(values=[selected_events[c] for c in selected_events.columns],
-#                                                   fill = dict(color='#F5F8FF'),
-#                                                   align = ['left'] * 5))
-#                         })
+                dcc.Upload(
+                    id='events-file-1',
+                    children=html.Div([
+                        'Event File: Drag & Drop or ',
+                        html.A('Select')
+                    ]),
+                    style={
+                        'width': '100%',
+                        'height': '30px',
+                        'lineHeight': '30px',
+                        'borderWidth': '1px',
+                        'borderStyle': 'dashed',
+                        'borderRadius': '5px',
+                        'textAlign': 'center',
+                        'margin': '10px'
+                    }
+                )
+            ]),
+            html.Tr(
+                [html.Th('Hydrograph 1'), html.Th('Hydrograph 2')]
+            ),
+            html.Tr([
+                html.Td([
+                    dcc.Markdown('Select event and node:'),
+                    dcc.Dropdown(
+                            id='selected-event',
+                            options=[{'label': val, 'value': key} \
+                                for key, val in events.iteritems()],
+                            value=events.keys()[0]
+                    ),
+                    dcc.Dropdown(
+                            id='selected-node',
+                            options=[{'label': key, 'value': key} \
+                                for key in rafts_data[1].keys()],
+                            value=rafts_data[1].keys()[0]
+                    )
+                ]),
+                html.Td([
+                    dcc.Markdown('Select event and node:'),
+                    dcc.Dropdown(
+                            id='selected-event-2',
+                            options=[{'label': val, 'value': key} \
+                                for key, val in events.iteritems()],
+                            value=events.keys()[0]
+                    ),
+                    dcc.Dropdown(
+                            id='selected-node-2',
+                            options=[{'label': key, 'value': key} \
+                                for key in rafts_data[1].keys()],
+                            value=rafts_data[1].keys()[0]
+                    )
                 ])
+            ])
+        ])
+
+main = html.Div([
+        # html.H3('XP-RAFTS Hydrographs'),
+        dcc.Graph(
+            id='xprafts-hydrographs',
+            style={'width': '95vw', 'height': '65vh'}
+        ),
+        table,
+        html.Div(id='rafts-data-1', style={'display': 'none'}),
+        html.Div(id='events-times-1', style={'display': 'none'}),
+        html.Div(id='events-1', style={'display': 'none'}),
+        html.Div(id='rafts-data-2', style={'display': 'none'}),
+        html.Div(id='events-times-2', style={'display': 'none'}),
+        html.Div(id='events-2', style={'display': 'none'})
+    ])
+
+app.layout = main
 
 @app.callback(
-    dash.dependencies.Output('rainfall-graphic', 'figure'),
-    [dash.dependencies.Input('selected-event', 'value')]
+    dash.dependencies.Output('xprafts-hydrographs', 'figure'),
+    [dash.dependencies.Input('selected-event', 'value'),
+     dash.dependencies.Input('selected-node', 'value'),
+     dash.dependencies.Input('selected-event-2', 'value'),
+     dash.dependencies.Input('selected-node-2', 'value')]
     )
-def update_graph(selected_event):
-    dff = events[events['Event'] == selected_event]
-    dff['Cumulative'] = dff[rainfall_field].cumsum()
-    
-    ifds = [go.Scatter(x=ifd.index.values / np.timedelta64(1, 'm'), y=ifd[c], mode='lines+markers', name=c, line=dict(shape='spline'), marker=dict(symbol='triangle')) for c in ifd.columns]
-    
-    bursts = rainevents.storm_bursts(dff, 5, 180, rainfall_field, step=5)
+def update_graph(selected_event, selected_node, 
+                 selected_event_2, selected_node_2):
 
-    actual = [go.Scatter(x=bursts.index.values / np.timedelta64(1, 'm'), 
-                         y=bursts['Max_Intensity'], name='Actual Storm')]
-    
-    raw = [go.Bar(x=dff.index, y=dff[rainfall_field], 
-              xaxis='x2', yaxis='y2', name='Raw Rainfall')]
-    
-    cumulative = [go.Scatter(x=dff.index, y=dff['Cumulative'], 
-                     xaxis='x2', yaxis='y3', name='Cumulative Rainfall')]
-    
-    data = ifds + actual + raw + cumulative
+    # if rafts_file_1 == None:
+    #     rafts_data = {}
+
+    # rafts_data, event_times, events = xprafts.parse_rafts_file(rafts_file, events_file)
+
+    data = []
+    max_time, max_flow = np.timedelta64(0, 'm'), 0
+    for event, node in zip([selected_event, selected_event_2],
+                           [selected_node, selected_node_2]):
+
+        times = event_times[event]
+        flows = rafts_data[event][node]
+
+        max_time = max(max_time, *times)
+        max_flow = max(max_flow, *flows)
+
+        data.append(go.Scatter(x=times / np.timedelta64(1, 'm'), 
+                            y=flows, name='{0} {1}'.format(node,
+                                events[event])))
 
     return {
         'data': data,
         'layout': go.Layout(
                             xaxis=dict(
-                                range=[0,185],
-                                title='Storm Duration (minutes)',
-                                domain=[0,0.4],
+                                range=[0,max_time/np.timedelta64(1, 'm')],
+                                title='Time (minutes)',
+                                # domain=[0,1],
                                 position=0
                             ),
                             yaxis=dict(
-                                range=[0,max(max(bursts['Max_Intensity']*1.2), ifd.values.max())],
-                                title='Rainfall Intensity (mm/hr)',
-                                domain=[0.02,1]
+                                range=[0,max_flow*1.1],
+                                title='Discharge (m3/s)',
+                                # domain=[0.0,1]
                             ),
-                            xaxis2=dict(
-                                title='Date & Time',
-                                domain=[0.5,0.9],
-                                autorange=True,
-                                position=0
-                            ),
-                            yaxis2=dict(
-                                title='Raw Rainfall (mm)',
-                                anchor='x2',
-                                domain=[0.02,1],
-                                autorange=True
-                            ),
-                            yaxis3=dict(
-                                title='Cumulative Rainfall (mm)',
-                                domain=[0,1],
-                                range=[0,max(dff['Cumulative'])*1.05],
-                                overlaying='y2',
-                                side='right',
-                                showgrid=False,
-                                position=0.92
-                            )
+                            legend=go.Legend(
+                                orientation='h'
+                                # x=0.5, y=0.9
+                                ),
+                            margin={'l':65, 'b': 40, 't': 10, 'r': 0},
+                            # height=600
                         )
     }
 
+app.css.append_css({
+    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+})
+app.title = 'XP-RAFTS Hydrograph Viewer'
 
 if __name__ == '__main__':
-    app.run_server()
+    app.run_server(debug=True)
