@@ -6,21 +6,17 @@ from dash.dependencies import Input, Output
 import numpy as np
 import xprafts
 import plotly.graph_objs as go
+from flask_cache import Cache
+import base64
 
-app = dash.Dash()
+app = dash.Dash(__name__)
+cache = Cache(app.server, config={'CACHE_TYPE': 'simple'})
 
-# @app.callback(
-#     Output('rafts-data-1', 'contents'),
-#     [Input('rafts-file-1', 'contents')]
-#     )
-# def update_rafts_data(rafts_file_1):
-#     rafts_data, _, _ = xprafts.parse_rafts_file(rafts_file_1, events_file_1)
+# rafts_file = r'example_files\Pallara_DEV01.loc'
+# events_file = r'example_files\event_names.txt'
 
-rafts_file = r'example_files\Pallara_DEV01.loc'
-events_file = r'example_files\event_names.txt'
-
-# def parse_contents(rafts_file, events_file):
-rafts_data, event_times, events = xprafts.parse_rafts_file(rafts_file, events_file)
+# # def parse_contents(rafts_file, events_file):
+# rafts_data, event_times, events = xprafts.parse_rafts_file(rafts_file, events_file)
 
 table = html.Div([
             html.Tr([
@@ -67,31 +63,27 @@ table = html.Div([
                 html.Td([
                     dcc.Markdown('Select event and node:'),
                     dcc.Dropdown(
-                            id='selected-event',
-                            options=[{'label': val, 'value': key} \
-                                for key, val in events.iteritems()],
-                            value=events.keys()[0]
+                            id='selected-event-1',
+                            options=[{'Events file not uploaded.': None}],
+                            value='Events file not uploaded.'
                     ),
                     dcc.Dropdown(
-                            id='selected-node',
-                            options=[{'label': key, 'value': key} \
-                                for key in rafts_data[1].keys()],
-                            value=rafts_data[1].keys()[0]
+                            id='selected-node-1',
+                            options={'RAFTS file not uploaded.': None},
+                            value='RAFTS file not uploaded.'
                     )
                 ]),
                 html.Td([
                     dcc.Markdown('Select event and node:'),
                     dcc.Dropdown(
                             id='selected-event-2',
-                            options=[{'label': val, 'value': key} \
-                                for key, val in events.iteritems()],
-                            value=events.keys()[0]
+                            options=[{'Events file not uploaded.': None}],
+                            value='Events file not uploaded.'
                     ),
                     dcc.Dropdown(
                             id='selected-node-2',
-                            options=[{'label': key, 'value': key} \
-                                for key in rafts_data[1].keys()],
-                            value=rafts_data[1].keys()[0]
+                            options=[{'RAFTS file not uploaded.': None}],
+                            value='RAFTS file not uploaded.'
                     )
                 ])
             ])
@@ -104,35 +96,34 @@ main = html.Div([
             style={'width': '95vw', 'height': '65vh'}
         ),
         table,
-        html.Div(id='rafts-data-1', style={'display': 'none'}),
-        html.Div(id='events-times-1', style={'display': 'none'}),
-        html.Div(id='events-1', style={'display': 'none'}),
-        html.Div(id='rafts-data-2', style={'display': 'none'}),
-        html.Div(id='events-times-2', style={'display': 'none'}),
-        html.Div(id='events-2', style={'display': 'none'})
+        html.Div(id='rafts-file-1-signal', style={'display': 'none'}),
+        html.Div(id='events-file-1-signal', style={'display': 'none'}),
+        # html.Div(id='rafts-data-2', style={'display': 'none'}),
+        # html.Div(id='events-2', style={'display': 'none'})
     ])
 
 app.layout = main
 
 @app.callback(
     dash.dependencies.Output('xprafts-hydrographs', 'figure'),
-    [dash.dependencies.Input('selected-event', 'value'),
-     dash.dependencies.Input('selected-node', 'value'),
+    [dash.dependencies.Input('selected-event-1', 'value'),
+     dash.dependencies.Input('selected-node-1', 'value'),
      dash.dependencies.Input('selected-event-2', 'value'),
-     dash.dependencies.Input('selected-node-2', 'value')]
+     dash.dependencies.Input('selected-node-2', 'value'),
+     dash.dependencies.Input('rafts-file-1-signal', 'children'),
+     dash.dependencies.Input('events-file-1-signal', 'children')]
     )
-def update_graph(selected_event, selected_node, 
-                 selected_event_2, selected_node_2):
+def update_graph(selected_event_1, selected_node_1, 
+                 selected_event_2, selected_node_2,
+                 rafts_file_1, events_file_1):
 
-    # if rafts_file_1 == None:
-    #     rafts_data = {}
-
-    # rafts_data, event_times, events = xprafts.parse_rafts_file(rafts_file, events_file)
+    rafts_data, event_times = global_store_rafts_file(rafts_file_1)
+    events = global_store_events_file(events_file_1)
 
     data = []
     max_time, max_flow = np.timedelta64(0, 'm'), 0
-    for event, node in zip([selected_event, selected_event_2],
-                           [selected_node, selected_node_2]):
+    for event, node in zip([selected_event_1, selected_event_2],
+                           [selected_node_1, selected_node_2]):
 
         times = event_times[event]
         flows = rafts_data[event][node]
@@ -166,6 +157,72 @@ def update_graph(selected_event, selected_node,
                             # height=600
                         )
     }
+
+@app.callback(
+    Output('rafts-file-1-signal', 'children'),
+    [Input('rafts-file-1', 'contents'),
+     Input('rafts-file-1', 'filename')]
+    )
+def parse_uploaded_rafts_file(rafts_file_contents, rafts_file_name):
+    content_type, content_string = rafts_file_contents.split(',')
+    decoded_rafts_file_data = base64.b64decode(content_string)
+
+    global_store_rafts_file(decoded_rafts_file_data)
+    return rafts_file_name
+
+@cache.memoize()
+def global_store_rafts_file(decoded_rafts_file_data):
+    rafts_data, event_times = xprafts.parse_rafts_file(decoded_rafts_file_data)
+    return rafts_data, event_times
+
+@app.callback(
+    Output('events-file-1-signal', 'children'),
+    [Input('events-file-1', 'contents'),
+     Input('events-file-1', 'filename')]
+    )
+def parse_uploaded_events_file(events_file_contents, events_file_name):
+    content_type, content_string = events_file_contents.split(',')
+    decoded_events_file_data = base64.b64decode(content_string)
+
+    global_store_events_file(decoded_events_file_data)
+    return events_file_name
+
+@cache.memoize()
+def global_store_events_file(events_file_data):
+    events = xprafts.parse_events_file(events_file_data)
+    return events
+
+@app.callback(
+    dash.dependencies.Output('selected-event-1', 'options'),
+    [dash.dependencies.Input('events-file-1-signal', 'children')]
+    )
+def update_event_dropdown_1(events_file_1):
+    events = global_store_events_file(events_file_1)
+    return [{'label': val, 'value': key} for key, val in events.iteritems()]
+
+@app.callback(
+    dash.dependencies.Output('selected-node-1', 'options'),
+    [dash.dependencies.Input('rafts-file-1-signal', 'children')]
+    )
+def update_event_dropdown_1(rafts_file_1):
+    rafts_data, _ = global_store_rafts_file(rafts_file_1)
+    return [{'label': key, 'value': key} for key in rafts_data[1].keys()]
+
+@app.callback(
+    dash.dependencies.Output('selected-event-2', 'options'),
+    [dash.dependencies.Input('events-file-1-signal', 'children')]
+    )
+def update_event_dropdown_2(events_file_1):
+    events = global_store_events_file(events_file_1)
+    return [{'label': val, 'value': key} for key, val in events.iteritems()]
+
+@app.callback(
+    dash.dependencies.Output('selected-node-2', 'options'),
+    [dash.dependencies.Input('rafts-file-1-signal', 'children')]
+    )
+def update_event_dropdown_2(rafts_file_1):
+    rafts_data, _ = global_store_rafts_file(rafts_file_1)
+    return [{'label': key, 'value': key} for key in rafts_data[1].keys()]
 
 app.css.append_css({
     'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'

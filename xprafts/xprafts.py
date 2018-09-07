@@ -1,12 +1,11 @@
 import pandas as pd
 import re
+import io
 
-def parse_rafts_file(rafts_file, events_file):
-
+def parse_rafts_file(decoded_rafts_file_data):
     rafts_data = {}
     event_times = {}
-
-    with open(rafts_file, 'r') as infile:
+    with io.StringIO(decoded_rafts_file_data.decode('utf-8')) as infile:
         for line in infile:
             line_data = line.split()
             if re.match(r'\s{1,4}\w', line):
@@ -29,11 +28,12 @@ def parse_rafts_file(rafts_file, events_file):
                 #     rafts_data[event][node] = \
                 #         [float(f) for f in line_data]
 
+    return rafts_data, event_times
+
+def parse_events_file(decoded_events_file_data):
     events = {}
-    with open(events_file, 'r') as infile:
+    with io.StringIO(decoded_events_file_data.decode('utf-8')) as infile:
         for i, line in enumerate(infile):
             events[i+1] = line.strip() # events start from 1 in RAFTS file
 
-    assert len(events.keys()) == len(rafts_data.keys())
-
-    return rafts_data, event_times, events
+    return events
