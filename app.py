@@ -1,7 +1,7 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 # import pandas as pd
 import numpy as np
 import xprafts
@@ -123,9 +123,9 @@ def generate_chart_data(event, node, events, rafts_data,
     [dash.dependencies.Input('selected-event-1', 'value'),
      dash.dependencies.Input('selected-node-1', 'value'),
      dash.dependencies.Input('selected-event-2', 'value'),
-     dash.dependencies.Input('selected-node-2', 'value'),
-     dash.dependencies.Input('rafts-file-1-signal', 'children'),
-     dash.dependencies.Input('events-file-1-signal', 'children')]
+     dash.dependencies.Input('selected-node-2', 'value')],
+    [dash.dependencies.State('rafts-file-1-signal', 'children'),
+     dash.dependencies.State('events-file-1-signal', 'children')]
     )
 def update_graph(selected_event_1, selected_node_1, 
                  selected_event_2, selected_node_2,
