@@ -1,10 +1,13 @@
 import pandas as pd
+import base64
 import re
 import io
 
-def parse_rafts_file(decoded_rafts_file_data):
+def parse_rafts_file(rafts_content_string):
     rafts_data = {}
     event_times = {}
+
+    decoded_rafts_file_data = base64.b64decode(rafts_content_string)
     with io.StringIO(decoded_rafts_file_data.decode('utf-8')) as infile:
         for line in infile:
             line_data = line.split()
@@ -30,8 +33,10 @@ def parse_rafts_file(decoded_rafts_file_data):
 
     return rafts_data, event_times
 
-def parse_events_file(decoded_events_file_data):
+def parse_events_file(events_content_string):
     events = {}
+
+    decoded_events_file_data = base64.b64decode(events_content_string)
     with io.StringIO(decoded_events_file_data.decode('utf-8')) as infile:
         for i, line in enumerate(infile):
             events[i+1] = line.strip() # events start from 1 in RAFTS file
