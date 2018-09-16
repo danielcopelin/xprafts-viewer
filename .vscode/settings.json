@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "C:\\apps\\Anaconda2\\python.exe"
+    "python.formatting.provider": "black",
+    "python.pythonPath": "C:\\Users\\daniel\\.virtualenvs\\xprafts-viewer-estryFB4\\Scripts\\python.exe"
 }

@@ -6,12 +6,16 @@ from dash.dependencies import Input, Output, State
 import numpy as np
 import xprafts
 import plotly.graph_objs as go
-from flask_cache import Cache
+from flask_caching import Cache
 import base64
 import copy
 
 app = dash.Dash(__name__)
-cache = Cache(app.server, config={'CACHE_TYPE': 'simple'})
+CACHE_CONFIG = {
+    'CACHE_TYPE': 'simple',
+}
+cache = Cache()
+cache.init_app(app.server, config=CACHE_CONFIG)
 
 main = html.Div([
         html.Table([
@@ -104,7 +108,6 @@ app.layout = main
 
 def generate_chart_data(event, node, events, rafts_data, 
                         event_times, data, max_time, max_flow):
-    data = copy.deepcopy(data)
 
     times = event_times[event]
     flows = rafts_data[event][node]
@@ -226,7 +229,7 @@ def global_store_events_file(events_content_string):
     )
 def update_event_dropdown_1(events_file_1):
     events = global_store_events_file(events_file_1)
-    return [{'label': val, 'value': key} for key, val in events.iteritems()]
+    return [{'label': val, 'value': key} for key, val in events.items()]
 
 @app.callback(
     dash.dependencies.Output('selected-node-1', 'options'),
@@ -242,7 +245,7 @@ def update_node_dropdown_1(rafts_file_1):
     )
 def update_event_dropdown_2(events_file_1):
     events = global_store_events_file(events_file_1)
-    return [{'label': val, 'value': key} for key, val in events.iteritems()]
+    return [{'label': val, 'value': key} for key, val in events.items()]
 
 @app.callback(
     dash.dependencies.Output('selected-node-2', 'options'),
