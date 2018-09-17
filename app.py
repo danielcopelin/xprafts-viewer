@@ -15,13 +15,14 @@ import redis
 import xprafts
 
 app = dash.Dash(__name__)
+server = app.server
 CACHE_CONFIG = {
     # 'CACHE_TYPE': 'simple',
     'CACHE_TYPE': 'redis',
     'CACHE_REDIS_URL': os.environ.get('REDIS_URL', 'localhost:6379')
 }
 cache = Cache()
-cache.init_app(app.server, config=CACHE_CONFIG)
+cache.init_app(server, config=CACHE_CONFIG)
 
 main = html.Div([
         html.Table([
