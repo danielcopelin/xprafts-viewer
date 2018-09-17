@@ -11,6 +11,7 @@ dash-core-components = "*"
 dash-html-components = "*"
 flask-caching = "*"
 redis = "*"
+gunicorn = "*"
 
 [dev-packages]
 pylint = "*"

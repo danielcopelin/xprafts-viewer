@@ -1,13 +1,16 @@
 version: '2'
 services:
-  web:
-    build: .
-    ports:
-        - "8050:${PORT}"
-    volumes:
-        - .:/code
-    depends_on:
-        - redis
+#   web:
+#     build: .
+#     ports:
+#         - "8050:8050"
+#     volumes:
+#         - .:/code
+#     depends_on:
+#         - redis
+#     command: /usr/local/bin/gunicorn -b :${PORT} app:app
+#     env_file:
+#         - .env
   redis:
     image: redis:alpine
     ports:

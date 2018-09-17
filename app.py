@@ -14,13 +14,11 @@ import redis
 
 import xprafts
 
-# r = redis.StrictRedis.from_url('localhost:6379') 
-
 app = dash.Dash(__name__)
 CACHE_CONFIG = {
     # 'CACHE_TYPE': 'simple',
     'CACHE_TYPE': 'redis',
-    'CACHE_REDIS_URL': 'localhost:6379'
+    'CACHE_REDIS_URL': os.environ.get('REDIS_URL', 'localhost:6379')
 }
 cache = Cache()
 cache.init_app(app.server, config=CACHE_CONFIG)
