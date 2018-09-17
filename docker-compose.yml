@@ -1,0 +1,14 @@
+version: '2'
+services:
+  web:
+    build: .
+    ports:
+        - "8050:${PORT}"
+    volumes:
+        - .:/code
+    depends_on:
+        - redis
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
