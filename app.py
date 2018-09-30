@@ -1,11 +1,13 @@
 import base64
 import copy
 import os
+import json
+import io
 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-# import pandas as pd
+import pandas as pd
 import numpy as np
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
@@ -16,6 +18,7 @@ import xprafts
 
 app = dash.Dash(__name__)
 server = app.server
+
 CACHE_CONFIG = {
     # 'CACHE_TYPE': 'simple',
     'CACHE_TYPE': 'redis',
@@ -23,6 +26,8 @@ CACHE_CONFIG = {
 }
 cache = Cache()
 cache.init_app(server, config=CACHE_CONFIG)
+
+r = redis.StrictRedis()
 
 main = html.Div([
         html.Table([
@@ -116,7 +121,7 @@ app.layout = main
 def generate_chart_data(event, node, events, rafts_data, 
                         event_times, data, max_time, max_flow):
 
-    times = event_times[event]
+    times = pd.TimedeltaIndex(event_times[event])
     flows = rafts_data[event][node]
 
     max_time = max(max_time, *times)
@@ -145,9 +150,10 @@ def update_graph(selected_event_1, selected_node_1,
     max_time, max_flow = np.timedelta64(0, 'm'), 0
 
     if rafts_file_1 is not None:
-        rafts_data, event_times = global_store_rafts_file(rafts_file_1)
+        rafts_data = get_from_redis('rafts_data')
+        event_times = get_from_redis('event_times')
     if events_file_1 is not None:
-        events = global_store_events_file(events_file_1)
+        events = get_from_redis('events')
 
     if rafts_file_1 and events_file_1:
 
@@ -195,16 +201,14 @@ def parse_uploaded_rafts_file(rafts_file_contents, rafts_file_name):
     if rafts_file_contents is not None:
         rafts_content_type, rafts_content_string = rafts_file_contents.split(',')
 
-        global_store_rafts_file(rafts_content_string)
-        return rafts_content_string
-    else:
-        return None
+        decoded_rafts_file_data = base64.b64decode(rafts_content_string)
+        with io.StringIO(decoded_rafts_file_data.decode('utf-8')) as infile:
+            rafts_data, event_times = xprafts.parse_rafts_file(infile)
 
-@cache.memoize()
-def global_store_rafts_file(rafts_content_string):
-    if rafts_content_string is not None:
-        rafts_data, event_times = xprafts.parse_rafts_file(rafts_content_string)
-        return rafts_data, event_times
+        r.set('rafts_data', json.dumps(rafts_data, default=str))
+        r.set('event_times', json.dumps(event_times, default=str))
+
+        return 'rafts'
     else:
         return None
 
@@ -217,25 +221,26 @@ def parse_uploaded_events_file(events_file_contents, events_file_name):
     if events_file_contents is not None:
         events_content_type, events_content_string = events_file_contents.split(',')
 
-        global_store_events_file(events_content_string)
-        return events_content_string
+        decoded_events_file_data = base64.b64decode(events_content_string)
+        with io.StringIO(decoded_events_file_data.decode('utf-8')) as infile:
+            events = xprafts.parse_events_file(infile)
+
+        r.set('events', json.dumps(events, default=str))
+        
+        return 'events'
     else:
         return None
 
 @cache.memoize()
-def global_store_events_file(events_content_string):
-    try:
-        events = xprafts.parse_events_file(events_content_string)
-        return events
-    except:
-        return None
+def get_from_redis(name):
+    return json.loads(r.get(name))
 
 @app.callback(
     dash.dependencies.Output('selected-event-1', 'options'),
     [dash.dependencies.Input('events-file-1-signal', 'children')]
     )
 def update_event_dropdown_1(events_file_1):
-    events = global_store_events_file(events_file_1)
+    events = get_from_redis('events')
     return [{'label': val, 'value': key} for key, val in events.items()]
 
 @app.callback(
@@ -243,15 +248,15 @@ def update_event_dropdown_1(events_file_1):
     [dash.dependencies.Input('rafts-file-1-signal', 'children')]
     )
 def update_node_dropdown_1(rafts_file_1):
-    rafts_data, _ = global_store_rafts_file(rafts_file_1)
-    return [{'label': key, 'value': key} for key in rafts_data[1].keys()]
+    rafts_data = get_from_redis('rafts_data')
+    return [{'label': key, 'value': key} for key in rafts_data['1'].keys()]
 
 @app.callback(
     dash.dependencies.Output('selected-event-2', 'options'),
     [dash.dependencies.Input('events-file-1-signal', 'children')]
     )
 def update_event_dropdown_2(events_file_1):
-    events = global_store_events_file(events_file_1)
+    events = get_from_redis('events')
     return [{'label': val, 'value': key} for key, val in events.items()]
 
 @app.callback(
@@ -259,8 +264,8 @@ def update_event_dropdown_2(events_file_1):
     [dash.dependencies.Input('rafts-file-1-signal', 'children')]
     )
 def update_node_dropdown_2(rafts_file_1):
-    rafts_data, _ = global_store_rafts_file(rafts_file_1)
-    return [{'label': key, 'value': key} for key in rafts_data[1].keys()]
+    rafts_data = get_from_redis('rafts_data')
+    return [{'label': key, 'value': key} for key in rafts_data['1'].keys()]
 
 app.css.append_css({
     'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
