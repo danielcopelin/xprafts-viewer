@@ -27,7 +27,7 @@ CACHE_CONFIG = {
 cache = Cache()
 cache.init_app(server, config=CACHE_CONFIG)
 
-r = redis.StrictRedis()
+r = redis.from_url(CACHE_CONFIG['CACHE_REDIS_URL'])
 
 main = html.Div([
         html.Table([
